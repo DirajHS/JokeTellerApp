@@ -1,6 +1,8 @@
 package com.udacity.gradle.builditbigger;
 
+import android.content.Context;
 import android.content.Intent;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.ActionBarActivity;
 import android.view.Menu;
@@ -9,7 +11,11 @@ import android.view.View;
 
 import com.diraj.displayjokes.AppConstants;
 import com.diraj.displayjokes.DisplayJokeActivity;
-import com.diraj.udacity.myjokes.MyJokes;
+import com.example.diraj.joketeller.backend.libmyjoke.Libmyjoke;
+import com.google.api.client.extensions.android.http.AndroidHttp;
+import com.google.api.client.extensions.android.json.AndroidJsonFactory;
+
+import java.io.IOException;
 
 
 public class MainActivity extends ActionBarActivity {
@@ -44,11 +50,36 @@ public class MainActivity extends ActionBarActivity {
     }
 
     public void tellJoke(View view) {
-        String joke = MyJokes.getJoke();
-        Intent intent = new Intent(this, DisplayJokeActivity.class);
-        intent.putExtra(AppConstants.INTENT_JOKE, joke);
-        startActivity(intent);
+        new GetJokeTask().execute(this);
     }
 
+    private static class GetJokeTask extends AsyncTask<Context, Void, String> {
+
+        private static Libmyjoke libMyJokeService = null;
+        private Context mContext;
+        @Override
+        protected String doInBackground(Context... contexts) {
+            if(libMyJokeService == null) {
+                Libmyjoke.Builder builder = new Libmyjoke.Builder(AndroidHttp.newCompatibleTransport(),
+                        new AndroidJsonFactory(), null)
+                        .setRootUrl("http://192.168.145.134:8080/_ah/api/");
+                libMyJokeService = builder.build();
+            }
+
+            mContext = contexts[0];
+            try{
+                return libMyJokeService.getJoke().execute().getJoke();
+            } catch (IOException e) {
+                return e.getLocalizedMessage();
+            }
+        }
+
+        @Override
+        protected void onPostExecute(String joke) {
+            Intent intent = new Intent(mContext, DisplayJokeActivity.class);
+            intent.putExtra(AppConstants.INTENT_JOKE, joke);
+            mContext.startActivity(intent);
+        }
+    }
 
 }
